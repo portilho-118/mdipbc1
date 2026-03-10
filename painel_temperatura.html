@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor de Temperatura</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:        #0a0e13;
+    --panel:     #111820;
+    --border:    #1e2d3d;
+    --accent:    #00c8ff;
+    --danger:    #ff3b3b;
+    --ok:        #00e676;
+    --text:      #cdd9e5;
+    --muted:     #4a6278;
+    --mono:      'Share Tech Mono', monospace;
+    --sans:      'Barlow', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    padding: 20px;
+  }
+
+  /* ── Cabeçalho ── */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 20px;
+  }
+
+  header h1 {
+    font-family: var(--mono);
+    font-size: 1rem;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 8px var(--ok);
+    animation: pulse 2s infinite;
+    display: inline-block;
+    margin-right: 6px;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.4; }
+  }
+
+  /* ── Grid principal ── */
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    grid-template-rows: auto auto;
+    gap: 16px;
+  }
+
+  /* ── Cards de métricas ── */
+  .metrics {
+    grid-column: 1 / 3;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 22px;
+  }
+
+  .card-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 8px;
+    font-family: var(--mono);
+  }
+
+  .card-value {
+    font-family: var(--mono);
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .card-value.ok     { color: var(--ok); }
+  .card-value.alert  { color: var(--danger); text-shadow: 0 0 12px var(--danger); }
+  .card-value.accent { color: var(--accent); }
+  .card-value.muted  { color: var(--text); }
+
+  .card-sub {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* ── Gráfico ── */
+  .chart-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+  }
+
+  .chart-card h2 {
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-family: var(--mono);
+    margin-bottom: 16px;
+  }
+
+  .chart-wrap {
+    position: relative;
+    height: 320px;
+  }
+
+  /* ── Tabela ── */
+  .table-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    overflow: hidden;
+  }
+
+  .table-card h2 {
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-family: var(--mono);
+    margin-bottom: 16px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--mono);
+    font-size: 0.82rem;
+  }
+
+  thead th {
+    text-align: left;
+    padding: 6px 10px;
+    color: var(--muted);
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #151e28;
+    transition: background 0.15s;
+  }
+
+  tbody tr:hover { background: #151e28; }
+
+  tbody td {
+    padding: 9px 10px;
+    color: var(--text);
+  }
+
+  tbody td.temp-ok    { color: var(--accent); }
+  tbody td.temp-alert { color: var(--danger); font-weight: 600; }
+
+  /* ── Badge de status ── */
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-family: var(--mono);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .badge.ok    { background: rgba(0,230,118,0.12); color: var(--ok);    border: 1px solid var(--ok); }
+  .badge.alert { background: rgba(255,59,59,0.12);  color: var(--danger); border: 1px solid var(--danger); }
+
+  /* ── Rodapé ── */
+  footer {
+    margin-top: 16px;
+    text-align: center;
+    font-size: 0.72rem;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+
+  /* ── Responsivo ── */
+  @media (max-width: 800px) {
+    .grid    { grid-template-columns: 1fr; }
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .metrics { grid-column: 1; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⬡ Monitor de Temperatura Industrial</h1>
+  <div class="header-right">
+    <span><span class="status-dot"></span><span id="status-txt">Conectando...</span></span>
+    <span id="ultima-atualizacao">--:--:--</span>
+  </div>
+</header>
+
+<div class="grid">
+
+  <!-- Métricas -->
+  <div class="metrics">
+    <div class="card">
+      <div class="card-label">Temperatura Atual</div>
+      <div class="card-value ok" id="val-atual">--.-</div>
+      <div class="card-sub">°C · Objeto</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Máxima</div>
+      <div class="card-value accent" id="val-max">--.-</div>
+      <div class="card-sub">°C · Últimas leituras</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Mínima</div>
+      <div class="card-value accent" id="val-min">--.-</div>
+      <div class="card-sub">°C · Últimas leituras</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Status</div>
+      <div style="margin-top:6px" id="val-status"><span class="badge ok">Normal</span></div>
+      <div class="card-sub" id="val-limite">Limite: 60°C</div>
+    </div>
+  </div>
+
+  <!-- Gráfico -->
+  <div class="chart-card">
+    <h2>Histórico de Temperatura</h2>
+    <div class="chart-wrap">
+      <canvas id="grafico"></canvas>
+    </div>
+  </div>
+
+  <!-- Tabela -->
+  <div class="table-card">
+    <h2>Últimos Registros</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Hora</th>
+          <th>Temp °C</th>
+        </tr>
+      </thead>
+      <tbody id="tabela-body">
+        <tr><td colspan="2" style="color:var(--muted);text-align:center;padding:20px">Carregando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<footer>
+  Sensor MLX90614 · Arduino UNO R4 WiFi · ThingSpeak API · Atualiza a cada 15s
+</footer>
+
+<script>
+  // ── Configurações ─────────────────────────────────────
+  const CHANNEL_ID  = 2934631;
+  const FIELD       = 1;
+  const LIMITE      = 60;
+  const NUM_PONTOS  = 20;
+  const INTERVALO   = 15000;
+
+  // ── Gráfico ───────────────────────────────────────────
+  const ctx = document.getElementById('grafico').getContext('2d');
+  const grafico = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [{
+        label: 'Temperatura °C',
+        data: [],
+        borderColor: '#00c8ff',
+        backgroundColor: 'rgba(0,200,255,0.07)',
+        borderWidth: 2,
+        pointRadius: 4,
+        pointBackgroundColor: '#00c8ff',
+        pointHoverRadius: 6,
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#111820',
+          borderColor: '#1e2d3d',
+          borderWidth: 1,
+          titleColor: '#4a6278',
+          bodyColor: '#00c8ff',
+          titleFont: { family: 'Share Tech Mono', size: 11 },
+          bodyFont:  { family: 'Share Tech Mono', size: 13 },
+          callbacks: {
+            label: ctx => ctx.parsed.y.toFixed(1) + ' °C'
+          }
+        },
+        annotation: {}
+      },
+      scales: {
+        x: {
+          ticks: { color: '#4a6278', font: { family: 'Share Tech Mono', size: 10 }, maxTicksLimit: 8 },
+          grid:  { color: '#1e2d3d' }
+        },
+        y: {
+          ticks: { color: '#4a6278', font: { family: 'Share Tech Mono', size: 10 }, callback: v => v + '°C' },
+          grid:  { color: '#1e2d3d' }
+        }
+      }
+    }
+  });
+
+  // ── Busca dados da API ThingSpeak ─────────────────────
+  async function buscarDados() {
+    try {
+      const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/${FIELD}.json?results=${NUM_PONTOS}`;
+      const res  = await fetch(url);
+      const json = await res.json();
+      const feeds = json.feeds.filter(f => f['field' + FIELD] !== null);
+
+      if (!feeds.length) return;
+
+      const labels = feeds.map(f => {
+        const d = new Date(f.created_at);
+        return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      });
+
+      const valores = feeds.map(f => parseFloat(f['field' + FIELD]));
+      const atual   = valores[valores.length - 1];
+      const maximo  = Math.max(...valores);
+      const minimo  = Math.min(...valores);
+      const alerta  = atual >= LIMITE;
+
+      // Atualiza gráfico
+      grafico.data.labels   = labels;
+      grafico.data.datasets[0].data = valores;
+      grafico.data.datasets[0].borderColor     = alerta ? '#ff3b3b' : '#00c8ff';
+      grafico.data.datasets[0].backgroundColor = alerta ? 'rgba(255,59,59,0.07)' : 'rgba(0,200,255,0.07)';
+      grafico.data.datasets[0].pointBackgroundColor = alerta ? '#ff3b3b' : '#00c8ff';
+      grafico.update();
+
+      // Atualiza métricas
+      const elAtual  = document.getElementById('val-atual');
+      elAtual.textContent = atual.toFixed(1);
+      elAtual.className   = 'card-value ' + (alerta ? 'alert' : 'ok');
+
+      document.getElementById('val-max').textContent = maximo.toFixed(1);
+      document.getElementById('val-min').textContent = minimo.toFixed(1);
+
+      const elStatus = document.getElementById('val-status');
+      elStatus.innerHTML = alerta
+        ? '<span class="badge alert">⚠ Alerta</span>'
+        : '<span class="badge ok">✔ Normal</span>';
+
+      // Atualiza tabela
+      const tbody = document.getElementById('tabela-body');
+      tbody.innerHTML = '';
+      const recentes = [...feeds].reverse().slice(0, 15);
+      recentes.forEach(f => {
+        const temp = parseFloat(f['field' + FIELD]);
+        const hora = new Date(f.created_at).toLocaleTimeString('pt-BR');
+        const tr   = document.createElement('tr');
+        const cls  = temp >= LIMITE ? 'temp-alert' : 'temp-ok';
+        tr.innerHTML = `<td>${hora}</td><td class="${cls}">${temp.toFixed(1)} °C</td>`;
+        tbody.appendChild(tr);
+      });
+
+      // Atualiza hora
+      document.getElementById('ultima-atualizacao').textContent =
+        new Date().toLocaleTimeString('pt-BR');
+      document.getElementById('status-txt').textContent = 'Online';
+
+    } catch (e) {
+      document.getElementById('status-txt').textContent = 'Erro de conexão';
+      console.error(e);
+    }
+  }
+
+  buscarDados();
+  setInterval(buscarDados, INTERVALO);
+</script>
+</body>
+</html>
