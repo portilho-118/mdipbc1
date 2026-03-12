@@ -62,7 +62,7 @@ const char*  API_KEY     = "SUA_WRITE_API_KEY";
 const float ZONA_A = 1.4;
 const float ZONA_B = 2.8;
 const float ZONA_C = 7.1;
-const float ESCALA_GRAFICO = 10.0; // Máximo da barra (mm/s)
+const float ESCALA_GRAFICO = 10.0;
 
 // ── Limite temperatura ────────────────────────────────────────
 const float TEMP_LIMITE = 60.0;
@@ -193,7 +193,7 @@ void loop() {
 
 // =============================================================
 //  CALIBRAÇÃO — Detecta automaticamente qual eixo recebe
-//  a gravidade e remove 9.81 apenas dele
+//  a gravidade e remove 9.81 no sentido correto
 // =============================================================
 void calibrar() {
   const int N = 200;
@@ -212,38 +212,26 @@ void calibrar() {
   float mediaY = somaY / N;
   float mediaZ = somaZ / N;
 
-  // Detecta qual eixo está vertical (maior valor absoluto)
-  // e remove 9.81 apenas dele
   float absX = abs(mediaX);
   float absY = abs(mediaY);
   float absZ = abs(mediaZ);
 
   if (absZ >= absX && absZ >= absY) {
-    // Eixo Z é vertical — caso mais comum (sensor deitado)
+    // Eixo Z vertical — remove gravidade no sentido correto
     offsetX = mediaX;
     offsetY = mediaY;
-    offsetZ = mediaZ - 9.81;
+    offsetZ = mediaZ + 9.81;  // ← corrigido: sensor com Z para baixo
   }
   else if (absX >= absY && absX >= absZ) {
-    // Eixo X é vertical
-    offsetX = mediaX - 9.81;
+    offsetX = mediaX + 9.81;
     offsetY = mediaY;
     offsetZ = mediaZ;
   }
   else {
-    // Eixo Y é vertical
     offsetX = mediaX;
-    offsetY = mediaY - 9.81;
+    offsetY = mediaY + 9.81;
     offsetZ = mediaZ;
   }
-
-  Serial.print("Eixo vertical detectado — ");
-  if (abs(offsetZ) < abs(offsetX) && abs(offsetZ) < abs(offsetY))
-    Serial.println("Z");
-  else if (abs(offsetX) < abs(offsetY))
-    Serial.println("X");
-  else
-    Serial.println("Y");
 
   Serial.print("Offset X: "); Serial.print(offsetX);
   Serial.print(" | Y: ");     Serial.print(offsetY);
@@ -251,11 +239,10 @@ void calibrar() {
 }
 
 // =============================================================
-//  CÁLCULO RMS — Integração numérica aceleração → velocidade
+//  CÁLCULO RMS — velocidade instantânea sem acúmulo
 //  Resultado em mm/s (padrão ISO 20816-3)
 // =============================================================
 void calcularRMS(float &rmsX, float &rmsY, float &rmsZ) {
-  float velX = 0, velY = 0, velZ = 0;
   float somaX2 = 0, somaY2 = 0, somaZ2 = 0;
   float dt = INTERVALO_MS / 1000.0;
 
@@ -267,13 +254,13 @@ void calcularRMS(float &rmsX, float &rmsY, float &rmsZ) {
     float ay = a.acceleration.y - offsetY;
     float az = a.acceleration.z - offsetZ;
 
-    velX += ax * dt;
-    velY += ay * dt;
-    velZ += az * dt;
+    float vx = ax * dt;
+    float vy = ay * dt;
+    float vz = az * dt;
 
-    somaX2 += velX * velX;
-    somaY2 += velY * velY;
-    somaZ2 += velZ * velZ;
+    somaX2 += vx * vx;
+    somaY2 += vy * vy;
+    somaZ2 += vz * vz;
 
     delay(INTERVALO_MS);
   }
@@ -443,3 +430,4 @@ void telaWiFi() {
   }
   display.display();
 }
+
