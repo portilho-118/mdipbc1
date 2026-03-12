@@ -1,0 +1,445 @@
+// ============================================================
+//  MIPBC1 — Módulo de Inspeção Preditiva de Baixo Custo
+//  Monitoramento de Vibração — MPU6050
+//  Base normativa: ISO 20816-3 (antigo ISO 10816-3)
+//  CEMPT SENAI Distrito Industrial — São Luís, MA
+//  Prof. Dartisson Castro Reis
+// ============================================================
+//
+//  ZONAS ISO 20816-3 (motores/bombas médios):
+//  Zona A — até 1.4 mm/s RMS  → ÓTIMO   (máquina nova)
+//  Zona B — até 2.8 mm/s RMS  → BOM     (operação contínua)
+//  Zona C — até 7.1 mm/s RMS  → ALERTA  (investigar)
+//  Zona D — acima de 7.1 mm/s → PERIGO  (parar imediatamente)
+//
+//  LIGAÇÃO MPU6050:
+//  VCC → 5V | GND → GND | SDA → A4 | SCL → A5
+//  AD0 → desconectado (endereço padrão 0x68)
+//
+//  LIGAÇÃO OLED (já existente):
+//  VCC → 3.3V | GND → GND | SDA → A4 | SCL → A5
+//
+//  THINGSPEAK:
+//  Field 1 → Temperatura Objeto
+//  Field 2 → Temperatura Ambiente
+//  Field 3 → Vibração RMS Eixo X (mm/s)
+//  Field 4 → Vibração RMS Eixo Y (mm/s)
+//  Field 5 → Vibração RMS Eixo Z (mm/s)
+//
+//  TELAS OLED (6 telas, 5 s cada):
+//  1 → Temperatura do Objeto
+//  2 → Temperatura Ambiente
+//  3 → Vibração — valores numéricos X / Y / Z
+//  4 → Vibração — gráfico de barras horizontais
+//  5 → Zona ISO 20816-3
+//  6 → Status WiFi
+//
+//  BIBLIOTECAS NECESSÁRIAS:
+//  - Adafruit MPU6050
+//  - Adafruit Unified Sensor
+//  - Adafruit SSD1306
+//  - Adafruit GFX Library
+//  - Adafruit MLX90614
+//  - ThingSpeak
+// ============================================================
+
+#include <Wire.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+#include <Adafruit_MLX90614.h>
+#include <WiFiS3.h>
+#include <ThingSpeak.h>
+
+// ── Configurações WiFi e ThingSpeak ──────────────────────────
+const char* WIFI_SSID    = "SEU_WIFI";
+const char* WIFI_SENHA   = "SUA_SENHA";
+unsigned long CHANNEL_ID = "SEU_CHANNEL_ID;
+const char*  API_KEY     = "SUA_WRITE_API_KEY";
+
+// ── Limites ISO 20816-3 (mm/s RMS) ───────────────────────────
+const float ZONA_A = 1.4;
+const float ZONA_B = 2.8;
+const float ZONA_C = 7.1;
+const float ESCALA_GRAFICO = 10.0; // Máximo da barra (mm/s)
+
+// ── Limite temperatura ────────────────────────────────────────
+const float TEMP_LIMITE = 60.0;
+
+// ── Configuração OLED ─────────────────────────────────────────
+#define LARGURA_OLED 128
+#define ALTURA_OLED   64
+#define RESET_OLED    -1
+Adafruit_SSD1306 display(LARGURA_OLED, ALTURA_OLED, &Wire, RESET_OLED);
+
+// ── Sensores ──────────────────────────────────────────────────
+Adafruit_MPU6050 mpu;
+Adafruit_MLX90614 mlx;
+
+// ── Controle de telas OLED ────────────────────────────────────
+int telaAtual             = 0;
+const int NUM_TELAS       = 6;
+unsigned long ultimaTroca = 0;
+const long INTERVALO_TELA = 5000;
+
+// ── Controle de envio ThingSpeak ──────────────────────────────
+unsigned long ultimoEnvio  = 0;
+const long INTERVALO_ENVIO = 15000;
+
+// ── Aquisição de amostras para RMS ───────────────────────────
+const int NUM_AMOSTRAS = 100;
+const int INTERVALO_MS = 10;
+
+// ── Calibração ────────────────────────────────────────────────
+float offsetX = 0, offsetY = 0, offsetZ = 0;
+
+// ── WiFi ──────────────────────────────────────────────────────
+WiFiClient cliente;
+
+// =============================================================
+//  SETUP
+// =============================================================
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();
+
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+    Serial.println("OLED não encontrado");
+    while (1);
+  }
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+  mostrarMensagem("MIPBC1", "Iniciando...", "");
+
+  if (!mlx.begin()) {
+    mostrarMensagem("ERRO", "MLX90614", "Verifique ligacao");
+    while (1);
+  }
+
+  if (!mpu.begin()) {
+    mostrarMensagem("ERRO", "MPU6050", "Verifique ligacao");
+    while (1);
+  }
+
+  mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+  mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+  mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+
+  mostrarMensagem("Calibrando...", "Mantenha o sensor", "em repouso");
+  calibrar();
+  mostrarMensagem("Calibrado!", "Offsets removidos", "OK");
+  delay(1000);
+
+  mostrarMensagem("WiFi", "Conectando...", WIFI_SSID);
+  WiFi.begin(WIFI_SSID, WIFI_SENHA);
+  int tentativas = 0;
+  while (WiFi.status() != WL_CONNECTED && tentativas < 20) {
+    delay(500);
+    tentativas++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    ThingSpeak.begin(cliente);
+    mostrarMensagem("WiFi OK", WiFi.localIP().toString().c_str(), "");
+  } else {
+    mostrarMensagem("WiFi FALHOU", "Modo offline", "Dados locais OK");
+  }
+  delay(1500);
+}
+
+// =============================================================
+//  LOOP
+// =============================================================
+void loop() {
+  float tempObjeto   = mlx.readObjectTempC();
+  float tempAmbiente = mlx.readAmbientTempC();
+
+  float rmsX, rmsY, rmsZ;
+  calcularRMS(rmsX, rmsY, rmsZ);
+
+  float  rmsMax   = max(rmsX, max(rmsY, rmsZ));
+  String zona     = determinarZona(rmsMax);
+  String zonaDesc = descricaoZona(zona);
+
+  Serial.print("TObj: ");  Serial.print(tempObjeto, 1);
+  Serial.print(" C  |  TAmb: "); Serial.print(tempAmbiente, 1); Serial.println(" C");
+  Serial.print("X: "); Serial.print(rmsX, 3);
+  Serial.print("  Y: "); Serial.print(rmsY, 3);
+  Serial.print("  Z: "); Serial.print(rmsZ, 3);
+  Serial.print("  mm/s  →  Zona "); Serial.println(zona + " " + zonaDesc);
+  Serial.println("---");
+
+  unsigned long agora = millis();
+  if (agora - ultimaTroca >= INTERVALO_TELA) {
+    telaAtual   = (telaAtual + 1) % NUM_TELAS;
+    ultimaTroca = agora;
+  }
+
+  switch (telaAtual) {
+    case 0: telaTemperatura("OBJETO",   tempObjeto,   TEMP_LIMITE); break;
+    case 1: telaTemperatura("AMBIENTE", tempAmbiente, 45.0);        break;
+    case 2: telaVibracaoNumerica(rmsX, rmsY, rmsZ);                 break;
+    case 3: telaVibracaoGrafico(rmsX, rmsY, rmsZ);                  break;
+    case 4: telaZonaISO(zona, zonaDesc, rmsMax);                    break;
+    case 5: telaWiFi();                                              break;
+  }
+
+  if (agora - ultimoEnvio >= INTERVALO_ENVIO) {
+    ultimoEnvio = agora;
+    enviarThingSpeak(tempObjeto, tempAmbiente, rmsX, rmsY, rmsZ);
+  }
+}
+
+// =============================================================
+//  CALIBRAÇÃO — Detecta automaticamente qual eixo recebe
+//  a gravidade e remove 9.81 apenas dele
+// =============================================================
+void calibrar() {
+  const int N = 200;
+  float somaX = 0, somaY = 0, somaZ = 0;
+
+  for (int i = 0; i < N; i++) {
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+    somaX += a.acceleration.x;
+    somaY += a.acceleration.y;
+    somaZ += a.acceleration.z;
+    delay(5);
+  }
+
+  float mediaX = somaX / N;
+  float mediaY = somaY / N;
+  float mediaZ = somaZ / N;
+
+  // Detecta qual eixo está vertical (maior valor absoluto)
+  // e remove 9.81 apenas dele
+  float absX = abs(mediaX);
+  float absY = abs(mediaY);
+  float absZ = abs(mediaZ);
+
+  if (absZ >= absX && absZ >= absY) {
+    // Eixo Z é vertical — caso mais comum (sensor deitado)
+    offsetX = mediaX;
+    offsetY = mediaY;
+    offsetZ = mediaZ - 9.81;
+  }
+  else if (absX >= absY && absX >= absZ) {
+    // Eixo X é vertical
+    offsetX = mediaX - 9.81;
+    offsetY = mediaY;
+    offsetZ = mediaZ;
+  }
+  else {
+    // Eixo Y é vertical
+    offsetX = mediaX;
+    offsetY = mediaY - 9.81;
+    offsetZ = mediaZ;
+  }
+
+  Serial.print("Eixo vertical detectado — ");
+  if (abs(offsetZ) < abs(offsetX) && abs(offsetZ) < abs(offsetY))
+    Serial.println("Z");
+  else if (abs(offsetX) < abs(offsetY))
+    Serial.println("X");
+  else
+    Serial.println("Y");
+
+  Serial.print("Offset X: "); Serial.print(offsetX);
+  Serial.print(" | Y: ");     Serial.print(offsetY);
+  Serial.print(" | Z: ");     Serial.println(offsetZ);
+}
+
+// =============================================================
+//  CÁLCULO RMS — Integração numérica aceleração → velocidade
+//  Resultado em mm/s (padrão ISO 20816-3)
+// =============================================================
+void calcularRMS(float &rmsX, float &rmsY, float &rmsZ) {
+  float velX = 0, velY = 0, velZ = 0;
+  float somaX2 = 0, somaY2 = 0, somaZ2 = 0;
+  float dt = INTERVALO_MS / 1000.0;
+
+  for (int i = 0; i < NUM_AMOSTRAS; i++) {
+    sensors_event_t a, g, temp;
+    mpu.getEvent(&a, &g, &temp);
+
+    float ax = a.acceleration.x - offsetX;
+    float ay = a.acceleration.y - offsetY;
+    float az = a.acceleration.z - offsetZ;
+
+    velX += ax * dt;
+    velY += ay * dt;
+    velZ += az * dt;
+
+    somaX2 += velX * velX;
+    somaY2 += velY * velY;
+    somaZ2 += velZ * velZ;
+
+    delay(INTERVALO_MS);
+  }
+
+  rmsX = sqrt(somaX2 / NUM_AMOSTRAS) * 1000.0;
+  rmsY = sqrt(somaY2 / NUM_AMOSTRAS) * 1000.0;
+  rmsZ = sqrt(somaZ2 / NUM_AMOSTRAS) * 1000.0;
+}
+
+// =============================================================
+//  ZONAS ISO 20816-3
+// =============================================================
+String determinarZona(float rms) {
+  if (rms <= ZONA_A) return "A";
+  if (rms <= ZONA_B) return "B";
+  if (rms <= ZONA_C) return "C";
+  return "D";
+}
+
+String descricaoZona(String zona) {
+  if (zona == "A") return "OTIMO";
+  if (zona == "B") return "BOM";
+  if (zona == "C") return "ALERTA";
+  return "PERIGO";
+}
+
+// =============================================================
+//  ENVIO THINGSPEAK
+// =============================================================
+void enviarThingSpeak(float tObj, float tAmb, float vX, float vY, float vZ) {
+  if (WiFi.status() != WL_CONNECTED) {
+    WiFi.begin(WIFI_SSID, WIFI_SENHA);
+    delay(3000);
+    if (WiFi.status() != WL_CONNECTED) return;
+  }
+
+  ThingSpeak.setField(1, tObj);
+  ThingSpeak.setField(2, tAmb);
+  ThingSpeak.setField(3, vX);
+  ThingSpeak.setField(4, vY);
+  ThingSpeak.setField(5, vZ);
+
+  int resultado = ThingSpeak.writeFields(CHANNEL_ID, API_KEY);
+  Serial.println(resultado == 200 ? "ThingSpeak: OK" : "ThingSpeak: ERRO " + String(resultado));
+}
+
+// =============================================================
+//  TELAS OLED
+// =============================================================
+
+void mostrarMensagem(const char* l1, const char* l2, const char* l3) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 10); display.println(l1);
+  display.setCursor(0, 26); display.println(l2);
+  display.setCursor(0, 42); display.println(l3);
+  display.display();
+}
+
+void telaTemperatura(const char* tipo, float temp, float limite) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.print("TEMP "); display.println(tipo);
+  display.drawLine(0, 10, 127, 10, SSD1306_WHITE);
+  display.setTextSize(2);
+  display.setCursor(10, 18);
+  display.print(temp, 1); display.print(" C");
+  display.setTextSize(1);
+  display.setCursor(0, 50);
+  display.println(temp >= limite ? "!! ACIMA DO LIMITE !!" : "Normal");
+  display.display();
+}
+
+void telaVibracaoNumerica(float vX, float vY, float vZ) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println("VIBRACAO mm/s RMS");
+  display.drawLine(0, 10, 127, 10, SSD1306_WHITE);
+  display.setCursor(0, 14);
+  display.print("X: "); display.print(vX, 2); display.println(" mm/s");
+  display.setCursor(0, 28);
+  display.print("Y: "); display.print(vY, 2); display.println(" mm/s");
+  display.setCursor(0, 42);
+  display.print("Z: "); display.print(vZ, 2); display.println(" mm/s");
+  display.display();
+}
+
+void telaVibracaoGrafico(float vX, float vY, float vZ) {
+  display.clearDisplay();
+
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println("VIBRACAO (barras)");
+  display.drawLine(0, 10, 127, 10, SSD1306_WHITE);
+
+  const int BAR_X      = 14;
+  const int BAR_W      = 86;
+  const int BAR_H      = 7;
+  const int VAL_X      = 103;
+  int   yPos[3]        = {14, 26, 38};
+  float vals[3]        = {vX, vY, vZ};
+  const char* nomes[3] = {"X", "Y", "Z"};
+
+  int pxZonaA = (int)(ZONA_A / ESCALA_GRAFICO * BAR_W);
+  int pxZonaB = (int)(ZONA_B / ESCALA_GRAFICO * BAR_W);
+  int pxZonaC = (int)(ZONA_C / ESCALA_GRAFICO * BAR_W);
+
+  for (int i = 0; i < 3; i++) {
+    float val = vals[i];
+    if (val > ESCALA_GRAFICO) val = ESCALA_GRAFICO;
+    int barPixels = (int)(val / ESCALA_GRAFICO * BAR_W);
+
+    display.setCursor(0, yPos[i] + 1);
+    display.print(nomes[i]);
+    display.drawRect(BAR_X, yPos[i], BAR_W, BAR_H, SSD1306_WHITE);
+    if (barPixels > 0)
+      display.fillRect(BAR_X, yPos[i], barPixels, BAR_H, SSD1306_WHITE);
+    display.setCursor(VAL_X, yPos[i] + 1);
+    display.print(vals[i], 1);
+    if (vals[i] > ZONA_B) display.print("!");
+  }
+
+  display.drawLine(BAR_X, 50, BAR_X + BAR_W, 50, SSD1306_WHITE);
+  display.drawLine(BAR_X + pxZonaA, 50, BAR_X + pxZonaA, 53, SSD1306_WHITE);
+  display.drawLine(BAR_X + pxZonaB, 50, BAR_X + pxZonaB, 53, SSD1306_WHITE);
+  display.drawLine(BAR_X + pxZonaC, 50, BAR_X + pxZonaC, 53, SSD1306_WHITE);
+  display.setCursor(BAR_X,               55); display.print("A");
+  display.setCursor(BAR_X + pxZonaA + 1, 55); display.print("B");
+  display.setCursor(BAR_X + pxZonaB + 1, 55); display.print("C");
+  display.setCursor(BAR_X + pxZonaC + 1, 55); display.print("D");
+
+  display.display();
+}
+
+void telaZonaISO(String zona, String desc, float rmsMax) {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println("ISO 20816-3");
+  display.drawLine(0, 10, 127, 10, SSD1306_WHITE);
+  display.setTextSize(2);
+  display.setCursor(0, 14);
+  display.print("ZONA "); display.println(zona);
+  display.setTextSize(1);
+  display.setCursor(0, 36); display.println(desc);
+  display.setCursor(0, 50);
+  display.print("Max: "); display.print(rmsMax, 2); display.println(" mm/s");
+  display.display();
+}
+
+void telaWiFi() {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println("STATUS WiFi");
+  display.drawLine(0, 10, 127, 10, SSD1306_WHITE);
+  display.setCursor(0, 16);
+  if (WiFi.status() == WL_CONNECTED) {
+    display.println("Conectado");
+    display.setCursor(0, 30); display.println(WiFi.SSID());
+    display.setCursor(0, 44); display.println(WiFi.localIP().toString());
+  } else {
+    display.println("Desconectado");
+    display.setCursor(0, 30); display.println("Modo offline");
+  }
+  display.display();
+}
