@@ -3,26 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sistema de Monitoramento Térmico</title>
+<meta name="description" content="MIPBC1 — Painel de Monitoramento Térmico e de Vibração Industrial. CEMPT SENAI Distrito Industrial, São Luís, MA.">
+<title>MIPBC1 — Monitor Industrial</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;600&family=Barlow+Condensed:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
+  /* ── Variáveis ── */
   :root {
-    --bg:         #1c1f22;
-    --panel:      #25292e;
-    --panel2:     #2e3338;
-    --border:     #3a3f45;
-    --border2:    #4a5058;
-    --accent:     #7eb3d4;
-    --accent2:    #5a9abf;
-    --danger:     #e05c5c;
-    --ok:         #6abf8a;
-    --text:       #c8cdd3;
-    --text2:      #9aa3ac;
-    --muted:      #5a6470;
-    --mono:       'Roboto Mono', monospace;
-    --sans:       'Barlow Condensed', sans-serif;
-    --radius:     4px;
+    --bg:      #1c1f22;
+    --panel:   #25292e;
+    --panel2:  #2e3338;
+    --border:  #3a3f45;
+    --border2: #4a5058;
+    --accent:  #7eb3d4;
+    --accent2: #5a9abf;
+    --danger:  #e05c5c;
+    --ok:      #6abf8a;
+    --warn:    #e0a85c;
+    --text:    #c8cdd3;
+    --text2:   #9aa3ac;
+    --muted:   #5a6470;
+    /* Eixos vibração */
+    --eixo-x:  #7eb3d4;
+    --eixo-y:  #a3d97e;
+    --eixo-z:  #d4a87e;
+    /* Zonas ISO */
+    --zona-a:  rgba(106,191,138,0.12);
+    --zona-b:  rgba(126,179,212,0.12);
+    --zona-c:  rgba(224,168,92,0.12);
+    --zona-d:  rgba(224,92,92,0.12);
+    --mono:    'Roboto Mono', monospace;
+    --sans:    'Barlow Condensed', sans-serif;
+    --radius:  4px;
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -39,6 +51,13 @@
     padding: 16px;
   }
 
+  /* ── Foco acessível ── */
+  *:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--radius);
+  }
+
   /* ── Cabeçalho ── */
   header {
     display: flex;
@@ -52,23 +71,20 @@
     overflow: hidden;
   }
 
-  /* Logo SENAI */
   .header-logo {
     display: flex;
     align-items: center;
-    padding: 12px 20px;
+    padding: 10px 16px;
     border-right: 1px solid var(--border);
-    background: #ffffff;
-    min-width: 160px;
   }
 
   .header-logo img {
-    height: 38px;
+    height: 52px;
     width: auto;
-    display: block;
+    filter: brightness(0) invert(1);
+    opacity: 0.9;
   }
 
-  /* Título */
   .header-left {
     padding: 12px 20px;
     border-right: 1px solid var(--border);
@@ -76,7 +92,7 @@
 
   .header-left .sys-label {
     font-family: var(--mono);
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     color: var(--muted);
     letter-spacing: 0.18em;
     text-transform: uppercase;
@@ -93,41 +109,56 @@
     margin-bottom: 8px;
   }
 
-  .header-btns {
-    display: flex;
-    gap: 8px;
-  }
+  .header-btns { display: flex; gap: 8px; }
 
   .header-center {
     flex: 1;
     display: flex;
-    align-items: center;
-    padding: 0 24px;
-    gap: 32px;
+    flex-direction: column;
+    justify-content: center;
+    padding: 10px 20px;
+    gap: 0;
+  }
+
+  .header-stats-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 24px;
+    flex-wrap: nowrap;
+  }
+
+  .header-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    white-space: nowrap;
   }
 
   .header-stat .hs-label {
     font-family: var(--mono);
-    font-size: 0.6rem;
+    font-size: 0.58rem;
     color: var(--muted);
     letter-spacing: 0.14em;
     text-transform: uppercase;
     display: block;
-    margin-bottom: 2px;
   }
 
   .header-stat .hs-value {
     font-family: var(--mono);
-    font-size: 0.85rem;
+    font-size: 0.82rem;
     color: var(--text2);
+    white-space: nowrap;
   }
 
   .header-right {
     display: flex;
-    align-items: center;
-    padding: 14px 20px;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 10px 20px;
     border-left: 1px solid var(--border);
     background: var(--panel2);
+    min-width: 160px;
   }
 
   /* ── Botões ── */
@@ -151,17 +182,6 @@
   }
 
   .btn:hover { background: rgba(90,154,191,0.22); }
-
-  .btn-csv {
-    border-color: var(--ok);
-    background: rgba(106,191,138,0.08);
-    color: var(--ok);
-    font-size: 0.6rem;
-    padding: 3px 10px;
-  }
-
-  .btn-csv:hover     { background: rgba(106,191,138,0.18); }
-  .btn-csv.carregando { opacity: 0.6; cursor: wait; }
 
   /* ── Status ── */
   .status-indicator {
@@ -260,26 +280,184 @@
     border: 1px solid;
   }
 
-  .badge.ok {
-    background: rgba(106,191,138,0.1);
-    color: var(--ok);
-    border-color: rgba(106,191,138,0.3);
-  }
-
-  .badge.alert {
-    background: rgba(224,92,92,0.1);
-    color: var(--danger);
-    border-color: rgba(224,92,92,0.3);
-    animation: blink 1.2s infinite;
-  }
+  .badge.ok    { background: rgba(106,191,138,0.1); color: var(--ok);    border-color: rgba(106,191,138,0.3); }
+  .badge.warn  { background: rgba(224,168,92,0.1);  color: var(--warn);  border-color: rgba(224,168,92,0.3); }
+  .badge.alert { background: rgba(224,92,92,0.1);   color: var(--danger);border-color: rgba(224,92,92,0.3); animation: blink 1.2s infinite; }
 
   @keyframes blink {
     0%, 100% { opacity: 1; }
     50%       { opacity: 0.55; }
   }
 
-  /* ── Gráfico ── */
+  /* ── Card de gráfico com navegação ── */
   .chart-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    position: relative;
+  }
+
+  .chart-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .chart-header-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .card-title {
+    font-family: var(--mono);
+    font-size: 0.63rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+  }
+
+  /* ── Navegação do gráfico ── */
+  .chart-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .nav-btn {
+    width: 28px; height: 28px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border2);
+    background: var(--panel2);
+    color: var(--text2);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .nav-btn:hover {
+    border-color: var(--accent2);
+    color: var(--accent);
+    background: rgba(90,154,191,0.1);
+  }
+
+  .nav-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .nav-label {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    color: var(--text2);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .nav-dots {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+
+  .nav-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--border2);
+    transition: all 0.2s;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+  }
+
+  .nav-dot.ativo {
+    background: var(--accent);
+    box-shadow: 0 0 4px var(--accent);
+    width: 8px; height: 8px;
+  }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    padding: 2px 8px;
+    border-radius: 2px;
+    background: var(--panel2);
+    border: 1px solid var(--border2);
+    color: var(--text2);
+  }
+
+  /* ── Painéis de gráfico ── */
+  .chart-container-fixo {
+    min-height: 340px; /* gráfico 280 + legenda 60 */
+  }
+  .chart-panel { display: none; }
+  .chart-panel.ativo { display: block; }
+  .chart-wrap { position: relative; height: 280px; }
+
+  /* ── Legenda vibração ── */
+  .legenda-vibracao {
+    display: flex;
+    gap: 16px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+    min-height: 40px;
+    align-items: center;
+  }
+
+  .legenda-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--text2);
+  }
+
+  .legenda-cor {
+    width: 20px; height: 3px;
+    border-radius: 2px;
+  }
+
+  .legenda-valor {
+    font-weight: 600;
+    margin-left: 2px;
+  }
+
+  /* ── Zonas ISO legenda ── */
+  .zonas-iso {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+
+  .zona-badge {
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    padding: 2px 7px;
+    border-radius: 2px;
+    border: 1px solid;
+    letter-spacing: 0.08em;
+  }
+
+  .zona-a { background: rgba(106,191,138,0.15); color: var(--ok);    border-color: rgba(106,191,138,0.3); }
+  .zona-b { background: rgba(126,179,212,0.15); color: var(--accent);border-color: rgba(126,179,212,0.3); }
+  .zona-c { background: rgba(224,168,92,0.15);  color: var(--warn);  border-color: rgba(224,168,92,0.3); }
+  .zona-d { background: rgba(224,92,92,0.15);   color: var(--danger);border-color: rgba(224,92,92,0.3); }
+
+  /* ── Tabela ── */
+  .table-card {
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -293,46 +471,39 @@
     margin-bottom: 16px;
   }
 
-  .card-title {
-    font-family: var(--mono);
-    font-size: 0.63rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.14em;
-  }
-
-  .tag {
+  .btn-csv {
     font-family: var(--mono);
     font-size: 0.6rem;
-    padding: 2px 8px;
-    border-radius: 2px;
-    background: var(--panel2);
-    border: 1px solid var(--border2);
-    color: var(--text2);
-  }
-
-  .chart-wrap { position: relative; height: 300px; }
-
-  /* ── Tabela ── */
-  .table-card {
-    background: var(--panel);
-    border: 1px solid var(--border);
+    padding: 3px 10px;
     border-radius: var(--radius);
-    padding: 18px 20px;
+    border: 1px solid var(--ok);
+    background: rgba(106,191,138,0.08);
+    color: var(--ok);
+    cursor: pointer;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    transition: background 0.2s;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
   }
+
+  .btn-csv:hover { background: rgba(106,191,138,0.18); }
+  .btn-csv.carregando { opacity: 0.6; cursor: wait; }
 
   table {
     width: 100%;
     border-collapse: collapse;
     font-family: var(--mono);
-    font-size: 0.75rem;
+    font-size: 0.72rem;
   }
 
   thead th {
     text-align: left;
-    padding: 6px 8px;
+    padding: 6px 6px;
     color: var(--muted);
-    font-size: 0.6rem;
+    font-size: 0.58rem;
     text-transform: uppercase;
     letter-spacing: 0.12em;
     border-bottom: 1px solid var(--border);
@@ -341,154 +512,288 @@
 
   tbody tr { border-bottom: 1px solid rgba(58,63,69,0.4); transition: background 0.1s; }
   tbody tr:hover { background: var(--panel2); }
-  tbody td { padding: 8px 8px; color: var(--text2); }
+  tbody td { padding: 7px 6px; color: var(--text2); }
   tbody td.temp-ok    { color: var(--accent); }
   tbody td.temp-alert { color: var(--danger); font-weight: 600; }
-  .seq { color: var(--muted); font-size: 0.65rem; }
+  tbody td.vib-ok     { color: var(--ok); }
+  tbody td.vib-warn   { color: var(--warn); font-weight: 600; }
+  tbody td.vib-alert  { color: var(--danger); font-weight: 600; }
+  .seq { color: var(--muted); font-size: 0.62rem; }
 
   /* ── Rodapé ── */
   footer {
     margin-top: 14px;
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
     font-family: var(--mono);
-    font-size: 0.6rem;
-    color: var(--muted);
-    padding: 0 2px;
+    font-size: 0.65rem;
+    color: var(--text2);
+    padding: 12px 2px;
+    border-top: 1px solid var(--border);
+    letter-spacing: 0.05em;
   }
 
-  @media (max-width: 860px) {
-    .grid          { grid-template-columns: 1fr; }
-    .metrics       { grid-column: 1; grid-template-columns: repeat(2,1fr); }
+  /* ── Título seção header center ── */
+  .hc-titulo {
+    font-family: var(--mono);
+    font-size: 0.58rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    width: 100%;
+  }
+
+  /* ── Links no header ── */
+  .hs-link {
+    color: var(--accent);
+    text-decoration: underline;
+    text-decoration-color: rgba(126,179,212,0.35);
+    text-underline-offset: 3px;
+    transition: color 0.15s, text-decoration-color 0.15s;
+  }
+
+  .hs-link:hover {
+    color: var(--text);
+    text-decoration-color: var(--accent);
+  }
+
+  /* ── Skip link acessibilidade ── */
+  .skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--accent2);
+    color: #fff;
+    padding: 8px 16px;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    z-index: 100;
+    transition: top 0.2s;
+  }
+
+  .skip-link:focus { top: 0; }
+
+  /* ── Responsivo ── */
+  @media (max-width: 900px) {
+    .grid    { grid-template-columns: 1fr; }
+    .metrics { grid-column: 1; grid-template-columns: repeat(2,1fr); }
     .header-center { display: none; }
-    .header-logo   { min-width: auto; }
+  }
+
+  @media (max-width: 480px) {
+    .metrics { grid-template-columns: 1fr 1fr; }
+    .header-logo img { height: 38px; }
   }
 </style>
 </head>
 <body>
 
-<header>
+<!-- Skip link para leitores de tela -->
+<a href="#conteudo-principal" class="skip-link">Ir para o conteúdo principal</a>
 
-  <!-- Logo SENAI -->
-  <div class="header-logo">
-    <img src="SENAI_logo_2024__1_.png" alt="SENAI">
+<header role="banner">
+  <div class="header-logo" aria-label="Logo SENAI">
+    <img src="SENAI_logo_2024__1_.png" alt="SENAI — Serviço Nacional de Aprendizagem Industrial">
   </div>
-
-  <!-- Título e botões -->
   <div class="header-left">
-    <div class="sys-label">Sistema de Monitoramento Térmico · MIPBC1</div>
+    <div class="sys-label">Sistema de Monitoramento Industrial · MIPBC1</div>
     <h1>Módulo de Inspeção Preditiva</h1>
     <div class="header-btns">
-      <a href="sobre.html" class="btn">⬡ Sobre o Projeto</a>
+      <a href="sobre.html" class="btn" aria-label="Ver informações sobre o projeto">⬡ Sobre o Projeto</a>
     </div>
   </div>
-
-  <!-- Especificações -->
-  <div class="header-center">
-    <div class="header-stat">
-      <span class="hs-label">Sensor</span>
-      <span class="hs-value">MLX90614</span>
-    </div>
-    <div class="header-stat">
-      <span class="hs-label">Controlador</span>
-      <span class="hs-value">Arduino UNO R4 WiFi</span>
-    </div>
-    <div class="header-stat">
-      <span class="hs-label">Limite Crítico</span>
-      <span class="hs-value">60.0 °C</span>
-    </div>
-    <div class="header-stat">
-      <span class="hs-label">Intervalo de Envio</span>
-      <span class="hs-value">15 s</span>
+  <div class="header-center" aria-label="Especificações técnicas">
+    <div class="hc-titulo">Sensores &amp; Sistema</div>
+    <div class="header-stats-row">
+      <div class="header-stat">
+        <span class="hs-label">Temp. Sensor</span>
+        <a class="hs-value hs-link" href="https://www.melexis.com/en/product/MLX90614/Digital-Plug-Play-Infrared-Thermometer-TO-Can" target="_blank" rel="noopener" aria-label="MLX90614 — datasheet do sensor de temperatura">MLX90614</a>
+      </div>
+      <div class="header-stat">
+        <span class="hs-label">Vibração</span>
+        <a class="hs-value hs-link" href="https://invensense.tdk.com/products/motion-tracking/6-axis/mpu-6050/" target="_blank" rel="noopener" aria-label="MPU6050 — datasheet do sensor de vibração">MPU6050</a>
+      </div>
+      <div class="header-stat">
+        <span class="hs-label">Controlador</span>
+        <a class="hs-value hs-link" href="https://docs.arduino.cc/hardware/uno-r4-wifi/" target="_blank" rel="noopener" aria-label="Arduino UNO R4 WiFi — documentação oficial">UNO R4 WiFi</a>
+      </div>
+      <div class="header-stat">
+        <span class="hs-label">Norma</span>
+        <a class="hs-value hs-link" href="https://www.iso.org/standard/78311.html" target="_blank" rel="noopener" aria-label="ISO 20816-3 — norma de vibração mecânica">ISO 20816-3</a>
+      </div>
     </div>
   </div>
-
-  <!-- Status -->
-  <div class="header-right">
-    <div class="status-indicator">
-      <span class="status-dot" id="status-dot"></span>
+  <div class="header-right" role="status" aria-live="polite" aria-label="Status da conexão">
+    <div class="hc-titulo">Status da Rede</div>
+    <div class="status-indicator" style="margin-top:4px">
+      <span class="status-dot" id="status-dot" aria-hidden="true"></span>
       <span id="status-txt">Conectando...</span>
     </div>
   </div>
-
 </header>
 
+<main id="conteudo-principal">
 <div class="grid">
 
-  <div class="metrics">
+  <!-- Métricas -->
+  <section class="metrics" aria-label="Métricas em tempo real">
     <div class="card card-ok" id="card-atual">
       <div class="card-label">Temperatura Atual</div>
-      <div class="card-value cor-ok" id="val-atual">--.-<span class="card-unit">°C</span></div>
+      <div class="card-value cor-ok" id="val-atual" aria-live="polite">--.-<span class="card-unit">°C</span></div>
       <div class="card-sub">Objeto monitorado</div>
     </div>
     <div class="card card-info">
       <div class="card-label">Temperatura Máxima</div>
-      <div class="card-value cor-accent" id="val-max">--.-<span class="card-unit">°C</span></div>
+      <div class="card-value cor-accent" id="val-max" aria-live="polite">--.-<span class="card-unit">°C</span></div>
       <div class="card-sub">Período atual</div>
     </div>
     <div class="card card-info">
       <div class="card-label">Temperatura Mínima</div>
-      <div class="card-value cor-accent" id="val-min">--.-<span class="card-unit">°C</span></div>
+      <div class="card-value cor-accent" id="val-min" aria-live="polite">--.-<span class="card-unit">°C</span></div>
       <div class="card-sub">Período atual</div>
     </div>
-    <div class="card" id="card-status">
+    <div class="card" id="card-status" style="min-height:110px">
       <div class="card-label">Condição Operacional</div>
-      <div style="margin-top:8px" id="val-status">
+      <div style="margin-top:8px;min-height:32px;display:flex;align-items:center" id="val-status" aria-live="assertive">
         <span class="badge ok">● Dentro dos Parâmetros</span>
       </div>
       <div class="card-sub" style="margin-top:8px" id="val-atualizacao">Última leitura: --</div>
     </div>
-  </div>
+  </section>
 
-  <div class="chart-card">
-    <div class="card-header">
-      <span class="card-title">Histórico de Temperatura — Objeto Monitorado</span>
-      <span class="tag" id="data-atual">--/--/----</span>
-    </div>
-    <div class="chart-wrap">
-      <canvas id="grafico"></canvas>
-    </div>
-  </div>
+  <!-- Gráfico com navegação -->
+  <section class="chart-card" aria-label="Gráfico de monitoramento">
+    <div class="chart-header">
+      <!-- Esquerda: título + zonas ISO -->
+      <div class="chart-header-left">
+        <span class="card-title" id="chart-titulo">Histórico de Temperatura — Objeto Monitorado</span>
+        <div class="zonas-iso" id="zonas-iso" style="display:none" aria-label="Zonas ISO 20816-3">
+          <span class="zona-badge zona-a">A ≤1.4 mm/s ÓTIMO</span>
+          <span class="zona-badge zona-b">B ≤2.8 mm/s BOM</span>
+          <span class="zona-badge zona-c">C ≤7.1 mm/s ALERTA</span>
+          <span class="zona-badge zona-d">D &gt;7.1 mm/s PERIGO</span>
+        </div>
+      </div>
 
-  <div class="table-card">
+      <!-- Direita: data + setas + dots -->
+      <div class="chart-nav" aria-label="Alternar entre gráficos">
+        <span class="tag" id="data-atual">--/--/----</span>
+        <button class="nav-btn" id="btn-prev" onclick="navegarGrafico(-1)"
+          aria-label="Gráfico anterior" title="Gráfico anterior">&#8592;</button>
+        <div class="nav-info">
+          <span class="nav-label" id="nav-label" aria-live="polite">TEMPERATURA</span>
+          <div class="nav-dots" role="tablist" aria-label="Selecionar gráfico">
+            <button class="nav-dot ativo" id="dot-0" onclick="irParaGrafico(0)"
+              role="tab" aria-selected="true" aria-label="Gráfico de temperatura" title="Temperatura"></button>
+            <button class="nav-dot" id="dot-1" onclick="irParaGrafico(1)"
+              role="tab" aria-selected="false" aria-label="Gráfico de vibração" title="Vibração"></button>
+          </div>
+        </div>
+        <button class="nav-btn" id="btn-next" onclick="navegarGrafico(1)"
+          aria-label="Próximo gráfico" title="Próximo gráfico">&#8594;</button>
+      </div>
+    </div>
+
+    <!-- Container fixo — não muda altura ao trocar painel -->
+    <div class="chart-container-fixo">
+
+      <!-- Painel Temperatura -->
+      <div class="chart-panel ativo" id="painel-temperatura" role="tabpanel" aria-label="Gráfico de temperatura">
+        <div class="chart-wrap">
+          <canvas id="grafico-temp" aria-label="Gráfico de histórico de temperatura do objeto monitorado"></canvas>
+        </div>
+      </div>
+
+      <!-- Painel Vibração -->
+      <div class="chart-panel" id="painel-vibracao" role="tabpanel" aria-label="Gráfico de vibração">
+        <div class="chart-wrap">
+          <canvas id="grafico-vib" aria-label="Gráfico de vibração por eixo X Y Z em mm/s conforme ISO 20816-3"></canvas>
+        </div>
+        <div class="legenda-vibracao" aria-label="Valores atuais de vibração por eixo">
+        <div class="legenda-item">
+          <div class="legenda-cor" style="background:var(--eixo-x)"></div>
+          <span>Eixo X</span>
+          <span class="legenda-valor" id="leg-x" style="color:var(--eixo-x)">--</span>
+          <span style="color:var(--muted)">mm/s</span>
+        </div>
+        <div class="legenda-item">
+          <div class="legenda-cor" style="background:var(--eixo-y)"></div>
+          <span>Eixo Y</span>
+          <span class="legenda-valor" id="leg-y" style="color:var(--eixo-y)">--</span>
+          <span style="color:var(--muted)">mm/s</span>
+        </div>
+        <div class="legenda-item">
+          <div class="legenda-cor" style="background:var(--eixo-z)"></div>
+          <span>Eixo Z</span>
+          <span class="legenda-valor" id="leg-z" style="color:var(--eixo-z)">--</span>
+          <span style="color:var(--muted)">mm/s</span>
+        </div>
+        <div class="legenda-item" style="margin-left:auto">
+          <span style="color:var(--muted)">Zona atual:</span>
+          <span class="legenda-valor" id="leg-zona" style="color:var(--ok)">--</span>
+        </div>
+        </div>
+      </div>
+
+    </div><!-- fim chart-container-fixo -->
+  </section>
+
+  <!-- Tabela -->
+  <aside class="table-card" aria-label="Registros recentes">
     <div class="card-header">
       <span class="card-title">Registros Recentes</span>
-      <button class="btn btn-csv" id="btn-csv" onclick="baixarCSV()">↓ Exportar CSV</button>
+      <button class="btn-csv" id="btn-csv" onclick="baixarCSV()"
+        aria-label="Exportar dados de vibração em formato CSV">↓ Exportar CSV</button>
     </div>
-    <table>
+    <table aria-label="Últimas 15 leituras de temperatura e vibração">
       <thead>
         <tr>
-          <th>#</th>
-          <th>Data / Hora</th>
-          <th>Temp. (°C)</th>
+          <th scope="col">#</th>
+          <th scope="col">Hora</th>
+          <th scope="col">Temp</th>
+          <th scope="col">VibX</th>
+          <th scope="col">Zona</th>
         </tr>
       </thead>
       <tbody id="tabela-body">
         <tr>
-          <td colspan="3" style="color:var(--muted);text-align:center;padding:24px">
+          <td colspan="5" style="color:var(--muted);text-align:center;padding:24px">
             Aguardando dados...
           </td>
         </tr>
       </tbody>
     </table>
-  </div>
+  </aside>
 
 </div>
+</main>
 
-<footer>
-  <span>MIPBC1 · Sensor MLX90614 · Arduino UNO R4 WiFi · CEMPT SENAI Distrito Industrial</span>
-  <span>Atualização automática a cada 15 segundos · ThingSpeak API</span>
+<footer role="contentinfo">
+  <span id="footer-txt"></span>
 </footer>
 
 <script>
-  const CHANNEL_ID = 3292611;
-  const FIELD      = 1;
-  const LIMITE     = 60;
-  const NUM_PONTOS = 20;
-  const INTERVALO  = 15000;
+  // ── Configuração ──────────────────────────────────────────
+  const CHANNEL_ID  = 2934631;
+  const LIMITE_TEMP = 60;
+  const LIMITE_C    = 7.1;
+  const LIMITE_B    = 2.8;
+  const LIMITE_A    = 1.4;
+  const NUM_PONTOS  = 20;
+  const INTERVALO   = 15000;
 
-  const ctx = document.getElementById('grafico').getContext('2d');
-  const grafico = new Chart(ctx, {
+  // ── Estado de navegação ───────────────────────────────────
+  let graficaAtivo = 0; // 0 = temperatura, 1 = vibração
+  const LABELS_NAV = ['TEMPERATURA', 'VIBRAÇÃO'];
+
+  // ── Gráfico Temperatura ───────────────────────────────────
+  const ctxTemp = document.getElementById('grafico-temp').getContext('2d');
+  const graficoTemp = new Chart(ctxTemp, {
     type: 'line',
     data: {
       labels: [],
@@ -507,7 +812,82 @@
         tension: 0.3
       }]
     },
+    options: opcoesGrafico('Temperatura (°C)', v => v.toFixed(1) + ' °C')
+  });
+
+  // ── Gráfico Vibração (3 eixos) ────────────────────────────
+  const ctxVib = document.getElementById('grafico-vib').getContext('2d');
+  const graficoVib = new Chart(ctxVib, {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'Eixo X (mm/s)',
+          data: [],
+          borderColor: '#7eb3d4',
+          backgroundColor: 'rgba(126,179,212,0.05)',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#7eb3d4',
+          pointBorderColor: '#25292e',
+          pointBorderWidth: 1,
+          pointHoverRadius: 5,
+          fill: false,
+          tension: 0.3
+        },
+        {
+          label: 'Eixo Y (mm/s)',
+          data: [],
+          borderColor: '#a3d97e',
+          backgroundColor: 'rgba(163,217,126,0.05)',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#a3d97e',
+          pointBorderColor: '#25292e',
+          pointBorderWidth: 1,
+          pointHoverRadius: 5,
+          fill: false,
+          tension: 0.3
+        },
+        {
+          label: 'Eixo Z (mm/s)',
+          data: [],
+          borderColor: '#d4a87e',
+          backgroundColor: 'rgba(212,168,126,0.05)',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#d4a87e',
+          pointBorderColor: '#25292e',
+          pointBorderWidth: 1,
+          pointHoverRadius: 5,
+          fill: false,
+          tension: 0.3
+        }
+      ]
+    },
     options: {
+      ...opcoesGrafico('Vibração (mm/s)', v => v.toFixed(2) + ' mm/s'),
+      plugins: {
+        ...opcoesGrafico().plugins,
+        annotation: {
+          annotations: {
+            zonaA: { type: 'box', yMin: 0,          yMax: LIMITE_A, backgroundColor: 'rgba(106,191,138,0.06)', borderWidth: 0 },
+            zonaB: { type: 'box', yMin: LIMITE_A,   yMax: LIMITE_B, backgroundColor: 'rgba(126,179,212,0.06)', borderWidth: 0 },
+            zonaC: { type: 'box', yMin: LIMITE_B,   yMax: LIMITE_C, backgroundColor: 'rgba(224,168,92,0.06)',  borderWidth: 0 },
+            zonaD: { type: 'box', yMin: LIMITE_C,   yMax: 15,       backgroundColor: 'rgba(224,92,92,0.06)',   borderWidth: 0 },
+            limA:  { type: 'line', yMin: LIMITE_A, yMax: LIMITE_A, borderColor: 'rgba(106,191,138,0.3)', borderWidth: 1, borderDash: [4,4] },
+            limB:  { type: 'line', yMin: LIMITE_B, yMax: LIMITE_B, borderColor: 'rgba(126,179,212,0.3)', borderWidth: 1, borderDash: [4,4] },
+            limC:  { type: 'line', yMin: LIMITE_C, yMax: LIMITE_C, borderColor: 'rgba(224,92,92,0.4)',   borderWidth: 1, borderDash: [4,4] }
+          }
+        }
+      }
+    }
+  });
+
+  // ── Opções base dos gráficos ──────────────────────────────
+  function opcoesGrafico(labelY, tickCallback) {
+    return {
       responsive: true,
       maintainAspectRatio: false,
       interaction: { mode: 'index', intersect: false },
@@ -518,13 +898,12 @@
           borderColor: '#3a3f45',
           borderWidth: 1,
           titleColor: '#5a6470',
-          bodyColor: '#7eb3d4',
+          bodyColor: '#c8cdd3',
           padding: 10,
           titleFont: { family: 'Roboto Mono', size: 10 },
-          bodyFont:  { family: 'Roboto Mono', size: 12 },
+          bodyFont:  { family: 'Roboto Mono', size: 11 },
           callbacks: {
-            title: items => 'Horário: ' + items[0].label,
-            label: ctx  => 'Temperatura: ' + ctx.parsed.y.toFixed(1) + ' °C'
+            title: items => 'Horário: ' + items[0].label
           }
         }
       },
@@ -534,13 +913,53 @@
           grid:  { color: 'rgba(58,63,69,0.5)' }
         },
         y: {
-          ticks: { color: '#5a6470', font: { family: 'Roboto Mono', size: 9 }, callback: v => v.toFixed(1) + ' °C' },
-          grid:  { color: 'rgba(58,63,69,0.5)' }
+          ticks: {
+            color: '#5a6470',
+            font: { family: 'Roboto Mono', size: 9 },
+            callback: tickCallback || (v => v)
+          },
+          grid: { color: 'rgba(58,63,69,0.5)' }
         }
       }
-    }
-  });
+    };
+  }
 
+  // ── Navegação entre gráficos ──────────────────────────────
+  function navegarGrafico(direcao) {
+    graficaAtivo = (graficaAtivo + direcao + 2) % 2;
+    atualizarNavegacao();
+  }
+
+  function irParaGrafico(index) {
+    graficaAtivo = index;
+    atualizarNavegacao();
+  }
+
+  function atualizarNavegacao() {
+    // Painéis
+    document.getElementById('painel-temperatura').classList.toggle('ativo', graficaAtivo === 0);
+    document.getElementById('painel-vibracao').classList.toggle('ativo', graficaAtivo === 1);
+
+    // Label e dots
+    document.getElementById('nav-label').textContent = LABELS_NAV[graficaAtivo];
+    document.querySelectorAll('.nav-dot').forEach((dot, i) => {
+      dot.classList.toggle('ativo', i === graficaAtivo);
+      dot.setAttribute('aria-selected', i === graficaAtivo ? 'true' : 'false');
+    });
+
+    // Título e zonas ISO
+    const titulo = graficaAtivo === 0
+      ? 'Histórico de Temperatura — Objeto Monitorado'
+      : 'Histórico de Vibração por Eixo — ISO 20816-3';
+    document.getElementById('chart-titulo').textContent = titulo;
+    document.getElementById('zonas-iso').style.display = graficaAtivo === 1 ? 'flex' : 'none';
+
+    // Redesenha o gráfico ativo (necessário após display:none)
+    if (graficaAtivo === 0) graficoTemp.resize();
+    else graficoVib.resize();
+  }
+
+  // ── Formata data/hora ─────────────────────────────────────
   function formatarDataHora(dateStr) {
     const d    = new Date(dateStr);
     const data = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -548,69 +967,132 @@
     return { data, hora, completo: data + '  ' + hora };
   }
 
+  // ── Determina zona ISO ────────────────────────────────────
+  function zonaISO(v) {
+    if (v <= LIMITE_A) return { zona: 'A', label: 'ÓTIMO',  cor: 'var(--ok)' };
+    if (v <= LIMITE_B) return { zona: 'B', label: 'BOM',    cor: 'var(--accent)' };
+    if (v <= LIMITE_C) return { zona: 'C', label: 'ALERTA', cor: 'var(--warn)' };
+    return                    { zona: 'D', label: 'PERIGO', cor: 'var(--danger)' };
+  }
+
+  // ── Busca e atualiza dados ────────────────────────────────
   async function buscarDados() {
     try {
-      const url   = `https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/${FIELD}.json?results=${NUM_PONTOS}`;
-      const res   = await fetch(url);
-      const json  = await res.json();
-      const feeds = json.feeds.filter(f => f['field' + FIELD] !== null);
+      // Temperatura (Field 1)
+      const urlTemp = `https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1.json?results=${NUM_PONTOS}`;
+      // Vibração (Fields 3,4,5)
+      const urlVib  = `https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/3,4,5.json?results=${NUM_PONTOS}`;
 
-      if (!feeds.length) return;
+      const [resTemp, resVib] = await Promise.all([fetch(urlTemp), fetch(urlVib)]);
+      const [jsonTemp, jsonVib] = await Promise.all([resTemp.json(), resVib.json()]);
 
-      const valores  = feeds.map(f => parseFloat(f['field' + FIELD]));
-      const labels   = feeds.map(f => formatarDataHora(f.created_at).hora);
-      const atual    = valores[valores.length - 1];
-      const maximo   = Math.max(...valores);
-      const minimo   = Math.min(...valores);
-      const alerta   = atual >= LIMITE;
-      const corLinha = alerta ? '#e05c5c' : '#5a9abf';
+      const feedsTemp = jsonTemp.feeds.filter(f => f.field1);
+      const feedsVib  = jsonVib.feeds.filter(f => f.field3 || f.field4 || f.field5);
 
-      grafico.data.labels                          = labels;
-      grafico.data.datasets[0].data                = valores;
-      grafico.data.datasets[0].borderColor          = corLinha;
-      grafico.data.datasets[0].backgroundColor      = alerta ? 'rgba(224,92,92,0.07)' : 'rgba(90,154,191,0.07)';
-      grafico.data.datasets[0].pointBackgroundColor = corLinha;
-      grafico.update();
+      if (!feedsTemp.length && !feedsVib.length) return;
 
-      const elAtual = document.getElementById('val-atual');
-      elAtual.innerHTML = atual.toFixed(1) + '<span class="card-unit">°C</span>';
-      elAtual.className = 'card-value ' + (alerta ? 'cor-alert' : 'cor-ok');
-      document.getElementById('card-atual').className    = 'card ' + (alerta ? 'card-alert' : 'card-ok');
-      document.getElementById('val-max').innerHTML       = maximo.toFixed(1) + '<span class="card-unit">°C</span>';
-      document.getElementById('val-min').innerHTML       = minimo.toFixed(1) + '<span class="card-unit">°C</span>';
-      document.getElementById('val-status').innerHTML    = alerta
-        ? '<span class="badge alert">▲ Temperatura Acima do Limite</span>'
-        : '<span class="badge ok">● Dentro dos Parâmetros</span>';
+      // ── Temperatura ──
+      if (feedsTemp.length) {
+        const valsTemp = feedsTemp.map(f => parseFloat(f.field1));
+        const labelsT  = feedsTemp.map(f => formatarDataHora(f.created_at).hora);
+        const atual    = valsTemp[valsTemp.length - 1];
+        const maximo   = Math.max(...valsTemp);
+        const minimo   = Math.min(...valsTemp);
+        const alerta   = atual >= LIMITE_TEMP;
+        const corLinha = alerta ? '#e05c5c' : '#5a9abf';
 
-      const ultima = formatarDataHora(feeds[feeds.length - 1].created_at);
-      document.getElementById('val-atualizacao').textContent = 'Última leitura: ' + ultima.completo;
-      document.getElementById('data-atual').textContent      = ultima.data;
+        graficoTemp.data.labels                          = labelsT;
+        graficoTemp.data.datasets[0].data                = valsTemp;
+        graficoTemp.data.datasets[0].borderColor          = corLinha;
+        graficoTemp.data.datasets[0].backgroundColor      = alerta ? 'rgba(224,92,92,0.07)' : 'rgba(90,154,191,0.07)';
+        graficoTemp.data.datasets[0].pointBackgroundColor = corLinha;
+        graficoTemp.update();
 
-      const tbody = document.getElementById('tabela-body');
-      tbody.innerHTML = '';
-      [...feeds].reverse().slice(0, 15).forEach((f, i) => {
-        const temp = parseFloat(f['field' + FIELD]);
-        const dt   = formatarDataHora(f.created_at);
-        const tr   = document.createElement('tr');
-        const cls  = temp >= LIMITE ? 'temp-alert' : 'temp-ok';
-        tr.innerHTML = `
-          <td class="seq">${String(i + 1).padStart(2, '0')}</td>
-          <td>${dt.data} &nbsp; ${dt.hora}</td>
-          <td class="${cls}">${temp.toFixed(1)} °C</td>
-        `;
-        tbody.appendChild(tr);
-      });
+        const elAtual = document.getElementById('val-atual');
+        elAtual.innerHTML = atual.toFixed(1) + '<span class="card-unit">°C</span>';
+        elAtual.className = 'card-value ' + (alerta ? 'cor-alert' : 'cor-ok');
+        document.getElementById('card-atual').className    = 'card ' + (alerta ? 'card-alert' : 'card-ok');
+        document.getElementById('val-max').innerHTML       = maximo.toFixed(1) + '<span class="card-unit">°C</span>';
+        document.getElementById('val-min').innerHTML       = minimo.toFixed(1) + '<span class="card-unit">°C</span>';
+        document.getElementById('val-status').innerHTML    = alerta
+          ? '<span class="badge alert" role="alert">▲ Temperatura Acima do Limite</span>'
+          : '<span class="badge ok">● Dentro dos Parâmetros</span>';
+
+        const ultima = formatarDataHora(feedsTemp[feedsTemp.length - 1].created_at);
+        document.getElementById('val-atualizacao').textContent = 'Última leitura: ' + ultima.completo;
+        document.getElementById('data-atual').textContent      = ultima.data;
+      }
+
+      // ── Vibração ──
+      if (feedsVib.length) {
+        const valsX  = feedsVib.map(f => parseFloat(f.field3 || 0));
+        const valsY  = feedsVib.map(f => parseFloat(f.field4 || 0));
+        const valsZ  = feedsVib.map(f => parseFloat(f.field5 || 0));
+        const labelsV = feedsVib.map(f => formatarDataHora(f.created_at).hora);
+
+        graficoVib.data.labels            = labelsV;
+        graficoVib.data.datasets[0].data  = valsX;
+        graficoVib.data.datasets[1].data  = valsY;
+        graficoVib.data.datasets[2].data  = valsZ;
+        graficoVib.update();
+
+        // Últimos valores
+        const ux = valsX[valsX.length - 1];
+        const uy = valsY[valsY.length - 1];
+        const uz = valsZ[valsZ.length - 1];
+        const uMax = Math.max(ux, uy, uz);
+        const z = zonaISO(uMax);
+
+        document.getElementById('leg-x').textContent = ux.toFixed(2);
+        document.getElementById('leg-y').textContent = uy.toFixed(2);
+        document.getElementById('leg-z').textContent = uz.toFixed(2);
+        document.getElementById('leg-zona').textContent  = z.zona + ' — ' + z.label;
+        document.getElementById('leg-zona').style.color  = z.cor;
+
+        // Tabela (combina temp + vib)
+        const tbody = document.getElementById('tabela-body');
+        tbody.innerHTML = '';
+        [...feedsVib].reverse().slice(0, 15).forEach((f, i) => {
+          const vx   = parseFloat(f.field3 || 0);
+          const vMax = Math.max(vx, parseFloat(f.field4||0), parseFloat(f.field5||0));
+          const zi   = zonaISO(vMax);
+          const dt   = formatarDataHora(f.created_at);
+
+          // Temperatura correspondente
+          const fTemp = feedsTemp.find(ft =>
+            Math.abs(new Date(ft.created_at) - new Date(f.created_at)) < 20000
+          );
+          const temp = fTemp ? parseFloat(fTemp.field1).toFixed(1) : '--';
+          const clsTemp = fTemp && parseFloat(fTemp.field1) >= LIMITE_TEMP ? 'temp-alert' : 'temp-ok';
+          const clsVib  = vMax > LIMITE_C ? 'vib-alert' : vMax > LIMITE_B ? 'vib-warn' : 'vib-ok';
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="seq">${String(i+1).padStart(2,'0')}</td>
+            <td>${dt.hora}</td>
+            <td class="${clsTemp}">${temp} °C</td>
+            <td class="${clsVib}">${vx.toFixed(2)}</td>
+            <td class="${clsVib}" style="color:${zi.cor}">${zi.zona}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
 
       document.getElementById('status-dot').className   = 'status-dot';
-      document.getElementById('status-txt').textContent = 'Sistema Operacional';
+      document.getElementById('status-txt').textContent = 'Online';
 
     } catch (e) {
       document.getElementById('status-dot').className   = 'status-dot erro';
-      document.getElementById('status-txt').textContent = 'Falha na Conexão';
+      document.getElementById('status-txt').textContent = 'Offline';
       console.error(e);
     }
   }
 
+  // ── Ano dinâmico no rodapé ────────────────────────────────
+  document.getElementById('footer-txt').textContent =
+    'TEC-ELE-118 · CEMPT SENAI Distrito Industrial · São Luís (MA) · © ' + new Date().getFullYear();
+
+  // ── Download CSV (vibração — 8000 registros) ──────────────
   async function baixarCSV() {
     const btn = document.getElementById('btn-csv');
     btn.textContent = '⏳ Buscando...';
@@ -618,36 +1100,40 @@
     btn.disabled = true;
 
     try {
-      const url   = `https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/${FIELD}.json?results=8000`;
-      const res   = await fetch(url);
-      const json  = await res.json();
-      const feeds = json.feeds.filter(f => f['field' + FIELD] !== null);
+      const url  = `https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/3,4,5.json?results=8000`;
+      const res  = await fetch(url);
+      const json = await res.json();
+      const feeds = json.feeds.filter(f => f.field3 || f.field4 || f.field5);
 
       const linhas = [
         'MIPBC1 - Modulo de Inspecao Preditiva de Baixo Custo',
         'CEMPT SENAI Distrito Industrial - Sao Luis MA',
-        'Sensor: MLX90614 | Controlador: Arduino UNO R4 WiFi',
+        'Sensor: MPU6050 | Norma: ISO 20816-3',
+        'Zonas: A<=1.4 | B<=2.8 | C<=7.1 | D>7.1 mm/s RMS',
         '',
-        'Sequencia;Data;Hora;Temperatura (C);Status'
+        'Sequencia;Data;Hora;Eixo X (mm/s);Eixo Y (mm/s);Eixo Z (mm/s);Zona ISO;Status'
       ];
 
       feeds.forEach((f, i) => {
-        const temp   = parseFloat(f['field' + FIELD]);
-        const dt     = formatarDataHora(f.created_at);
-        const status = temp >= LIMITE ? 'ACIMA DO LIMITE' : 'NORMAL';
-        linhas.push(`${i + 1};${dt.data};${dt.hora};${temp.toFixed(1)};${status}`);
+        const vx   = parseFloat(f.field3 || 0);
+        const vy   = parseFloat(f.field4 || 0);
+        const vz   = parseFloat(f.field5 || 0);
+        const vMax = Math.max(vx, vy, vz);
+        const zi   = zonaISO(vMax);
+        const dt   = formatarDataHora(f.created_at);
+        linhas.push(`${i+1};${dt.data};${dt.hora};${vx.toFixed(3)};${vy.toFixed(3)};${vz.toFixed(3)};${zi.zona};${zi.label}`);
       });
 
       const blob  = new Blob(['\uFEFF' + linhas.join('\n')], { type: 'text/csv;charset=utf-8;' });
       const link  = document.createElement('a');
       const agora = new Date();
       link.href     = URL.createObjectURL(blob);
-      link.download = `MIPBC1_temperatura_${agora.toLocaleDateString('pt-BR').replace(/\//g,'-')}.csv`;
+      link.download = `MIPBC1_vibracao_${agora.toLocaleDateString('pt-BR').replace(/\//g,'-')}.csv`;
       link.click();
       URL.revokeObjectURL(link.href);
       btn.textContent = '↓ Exportar CSV';
 
-    } catch (e) {
+    } catch(e) {
       btn.textContent = '✕ Erro';
       setTimeout(() => { btn.textContent = '↓ Exportar CSV'; }, 3000);
       console.error(e);
@@ -657,6 +1143,7 @@
     btn.disabled = false;
   }
 
+  // ── Inicia ────────────────────────────────────────────────
   buscarDados();
   setInterval(buscarDados, INTERVALO);
 </script>
