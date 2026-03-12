@@ -58,8 +58,8 @@
 // ── Credenciais ───────────────────────────────────────────────
 const char* WIFI_SSID    = "SEU_WIFI";
 const char* WIFI_SENHA   = "SUA_SENHA";
-unsigned long CHANNEL_ID = 2934631;
-const char*  API_KEY     = "SUA_WRITE_API_KEY";
+unsigned long CHANNEL_ID = "SEU_CHANNEL_ID";
+const char*  API_KEY     = "SUA_API_KEY_WRITING";
 
 // ── Limites de temperatura — ABNT NBR IEC 60034-1 (°C) ───────
 const float TEMP_ATENCAO = 60.0;
@@ -201,7 +201,7 @@ void loop() {
       display.clearDisplay();
       display.setTextSize(2);
       display.setCursor(4, 14);
-      display.println("!! PARAR !!");
+      display.println("PERIGO!");
       display.setTextSize(1);
       display.setCursor(16, 46);
       display.println("Temp. critica");
@@ -341,17 +341,17 @@ int lerBateria() {
 // =============================================================
 
 // ── Tela 1: TEMPERATURA ──────────────────────────────────────
-// Termômetro gráfico à esquerda, valor grande à direita,
-// badge de nível no topo. Apenas temperatura do objeto.
+// Ícone de termômetro estático à esquerda, valor grande à direita,
+// badge de nível no topo.
 void telaTemperatura(float tempObj, int nivel) {
   display.clearDisplay();
 
-  // Título
+  // ── Título ──
   display.setTextSize(1);
   display.setCursor(0, 0);
   display.print("TEMPERATURA");
 
-  // Badge de nível (canto superior direito)
+  // ── Badge de nível (canto superior direito) ──
   String lbl = labelTemperatura(nivel);
   int lblX   = 128 - (lbl.length() * 6) - 1;
   if (nivel == 0) {
@@ -367,42 +367,42 @@ void telaTemperatura(float tempObj, int nivel) {
 
   display.drawLine(0, 10, 127, 10, SSD1306_WHITE);
 
-  // Termômetro gráfico (lado esquerdo)
-  const int TX = 4;
-  const int TY = 13;
-  const int TH = 44;
-  const int TW = 10;
+  // ── Ícone termômetro estático ──
+  // Tubo vertical: retângulo arredondado
+  const int TX = 7;   // centro X
+  const int TY = 14;  // topo do tubo
 
-  display.drawRect(TX, TY, TW + 2, TH, SSD1306_WHITE);
-  display.drawCircle(TX + (TW / 2) + 1, TY + TH + 4, 5, SSD1306_WHITE);
+  // Tubo (5px largura, 30px altura)
+  display.drawRect(TX - 2, TY,     5, 30, SSD1306_WHITE); // contorno externo
+  display.drawRect(TX - 1, TY + 1, 3, 28, SSD1306_WHITE); // contorno interno (parede)
 
-  float pct = constrain(tempObj / TEMP_PERIGO, 0.0, 1.0);
-  int   barH = (int)(pct * (TH - 2));
-  if (barH > 0) {
-    display.fillRect(TX + 1, TY + TH - 1 - barH, TW, barH, SSD1306_WHITE);
-    display.fillCircle(TX + (TW / 2) + 1, TY + TH + 4, 4, SSD1306_WHITE);
-  }
+  // Preenchimento interno do tubo (mercúrio estático)
+  display.fillRect(TX - 1, TY + 10, 3, 19, SSD1306_WHITE);
 
-  // Marcas dos limites no termômetro
-  auto marcaY = [&](float limite) {
-    int y = TY + TH - 1 - (int)(constrain(limite / TEMP_PERIGO, 0.0, 1.0) * (TH - 2));
-    display.drawLine(TX + TW + 2, y, TX + TW + 5, y, SSD1306_WHITE);
-  };
-  marcaY(TEMP_ATENCAO);
-  marcaY(TEMP_CRITICO);
+  // Bulbo circular na base
+  display.fillCircle(TX, TY + 33, 6, SSD1306_WHITE);
+  // Anel externo do bulbo
+  display.drawCircle(TX, TY + 33, 7, SSD1306_WHITE);
 
-  // Valor principal — centralizado no espaço direito
+  // Tracinhos de escala ao lado do tubo (3 marcas)
+  display.drawLine(TX + 3, TY + 6,  TX + 6, TY + 6,  SSD1306_WHITE);
+  display.drawLine(TX + 3, TY + 15, TX + 6, TY + 15, SSD1306_WHITE);
+  display.drawLine(TX + 3, TY + 24, TX + 6, TY + 24, SSD1306_WHITE);
+
+  // ── Valor em destaque (centro-direita) ──
+  // Fonte tamanho 3 = 18px por char, 24px altura
   display.setTextSize(3);
   String valStr = String((int)round(tempObj));
   int vW = valStr.length() * 18;
-  int vX = 22 + ((105 - vW) / 2);
-  int vY = 13 + ((50 - 24) / 2);
+  int vX = 28 + ((100 - vW) / 2);
+  int vY = 18;
   display.setCursor(vX, vY);
   display.print(valStr);
 
-  // °C ao lado
+  // ── °C abaixo do valor ──
   display.setTextSize(2);
-  display.setCursor(vX + vW + 2, vY);
+  int cX = 28 + ((100 - 24) / 2);
+  display.setCursor(cX, vY + 28);
   display.print("\xB0""C");
 
   display.display();
