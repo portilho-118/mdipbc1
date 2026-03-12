@@ -55,7 +55,7 @@
 // ── Configurações WiFi e ThingSpeak ──────────────────────────
 const char* WIFI_SSID    = "SEU_WIFI";
 const char* WIFI_SENHA   = "SUA_SENHA";
-unsigned long CHANNEL_ID = "SEU_CHANNEL_ID;
+unsigned long CHANNEL_ID = 2934631;
 const char*  API_KEY     = "SUA_WRITE_API_KEY";
 
 // ── Limites ISO 20816-3 (mm/s RMS) ───────────────────────────
@@ -192,8 +192,9 @@ void loop() {
 }
 
 // =============================================================
-//  CALIBRAÇÃO — Detecta automaticamente qual eixo recebe
-//  a gravidade e remove 9.81 no sentido correto
+//  CALIBRAÇÃO — Usa a média bruta de cada eixo como offset
+//  Cancela ruído e gravidade automaticamente, em qualquer
+//  orientação do sensor
 // =============================================================
 void calibrar() {
   const int N = 200;
@@ -208,30 +209,9 @@ void calibrar() {
     delay(5);
   }
 
-  float mediaX = somaX / N;
-  float mediaY = somaY / N;
-  float mediaZ = somaZ / N;
-
-  float absX = abs(mediaX);
-  float absY = abs(mediaY);
-  float absZ = abs(mediaZ);
-
-  if (absZ >= absX && absZ >= absY) {
-    // Eixo Z vertical — remove gravidade no sentido correto
-    offsetX = mediaX;
-    offsetY = mediaY;
-    offsetZ = mediaZ + 9.81;  // ← corrigido: sensor com Z para baixo
-  }
-  else if (absX >= absY && absX >= absZ) {
-    offsetX = mediaX + 9.81;
-    offsetY = mediaY;
-    offsetZ = mediaZ;
-  }
-  else {
-    offsetX = mediaX;
-    offsetY = mediaY + 9.81;
-    offsetZ = mediaZ;
-  }
+  offsetX = somaX / N;
+  offsetY = somaY / N;
+  offsetZ = somaZ / N;
 
   Serial.print("Offset X: "); Serial.print(offsetX);
   Serial.print(" | Y: ");     Serial.print(offsetY);
@@ -430,4 +410,3 @@ void telaWiFi() {
   }
   display.display();
 }
-
